@@ -1,0 +1,28 @@
+{
+  "short_name": "TEDxTIET",
+  "name": "TEDxTIET 2026",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#eb0028",
+  "background_color": "#000000",
+  "description": "An independently organised TED event at Thapar Institute, Patiala."
+}

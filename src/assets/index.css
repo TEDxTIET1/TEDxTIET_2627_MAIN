@@ -1,0 +1,115 @@
+/* Anton is the hero/display face used across the site via font-['Anton'].
+   It was never imported, so every one of those rules was silently falling
+   back to the generic serif. */
+@import url("https://fonts.googleapis.com/css2?family=Anton&family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap");
+@import "tailwindcss";
+
+/* Tokens the ported About section relies on (it was authored against a Tailwind
+   v3 config; these are the v4 CSS-first equivalents). */
+@theme {
+    --color-tedx-red: #e62b1e;
+    --color-tedx-reddeep: #a3160d;
+    --font-display: "Big Shoulders Display", sans-serif;
+    --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+    /* The team page uses font-headline / font-label / text-primary throughout.
+       None of them were ever defined, so every one of those rules silently did
+       nothing — headline type fell through to the body font by luck, and
+       text-primary rendered as inherited white instead of the brand red. */
+    --font-headline: "Anton", sans-serif;
+    --font-label: "IBM Plex Mono", ui-monospace, monospace;
+    --color-primary: #eb0028;
+}
+
+/* The hover portraits on the team page ask for `animate-in fade-in zoom-in`,
+   which comes from the tailwindcss-animate plugin — not installed, so the
+   cards were snapping in with no transition at all. */
+@keyframes team-pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-50%) scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
+}
+
+.team-pop {
+    animation: team-pop-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body {
+    background-color: #000000;
+    font-family: 'Anton', sans-serif;
+    /* NOTE: never set overflow-x here — any overflow value on html/body makes it
+       a scroll container and silently breaks `position: sticky` on the hero. */
+    scrollbar-width: none;      /* Firefox */
+    -ms-overflow-style: none;   /* legacy Edge/IE */
+}
+
+html {
+    /* Black on the root itself, not only on body. Where Safari has not
+       painted yet (a fast scroll into a heavy section, rubber-banding past
+       either end, the toolbars collapsing) it shows the root, and with this
+       unset that could flash white before the content arrived. */
+    background-color: #000000;
+    scrollbar-width: none;
+    /* dark form controls + scrollbars instead of light-mode defaults */
+    color-scheme: dark;
+}
+
+/* Visible keyboard focus everywhere. The site had none, so keyboard users
+   had no idea where they were. :focus-visible keeps it off mouse clicks. */
+:focus-visible {
+    outline: 2px solid #eb0028;
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
+/* Screen-reader-only: used for the hero H1, whose wordmark is WebGL and so
+   invisible to assistive tech and search engines. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Film grain for the gallery. An inline SVG feTurbulence is used rather than a
+   bitmap so it costs no request, and it is animated by nudging the sampling
+   window instead of regenerating noise. */
+.gallery-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+    animation: gallery-grain-shift 700ms steps(4) infinite;
+}
+
+@keyframes gallery-grain-shift {
+    0% { background-position: 0 0; }
+    25% { background-position: -40px 20px; }
+    50% { background-position: 30px -30px; }
+    75% { background-position: -20px -10px; }
+    100% { background-position: 0 0; }
+}
+
+/* NOTE: this site deliberately does NOT gate animation on
+   prefers-reduced-motion. The global rule that used to live here collapsed
+   every animation to 0.01ms, which silently broke the preloader, the menu
+   bars, the hamburger and the gallery's idle spin — the motion IS the
+   interface here, and on the owner's own machine the OS setting was costing
+   far more than it gave. Asked for and signed off by the site owner. */
+
+body::-webkit-scrollbar,
+html::-webkit-scrollbar {
+    display: none;              /* Chrome, Safari, new Edge */
+    width: 0;
+    height: 0;
+}

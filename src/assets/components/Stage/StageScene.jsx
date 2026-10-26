@@ -1,0 +1,436 @@
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+// bundled so the built page is fully self-contained (no /public fetches)
+import fontJson from './helvetiker_bold.typeface.json'
+
+/**
+ * StageScene — just the 3D TEDxTIET logo, transparent background.
+ * The canvas is `absolute inset-0` instead of `fixed` so it sits inside the
+ * pinned experience rather than over the whole document.
+ *
+ * `idleRef` is a ref (never a prop value) holding "the stage is scrolled away".
+ * While it is true the render loop idles instead of drawing two full scenes per
+ * frame, handing the whole frame budget to the film reel. It has to be a ref so
+ * the reel can flip it on every scroll frame without re-rendering React.
+ *
+ * `frozenRef` is a ref holding `{ frozen, x, y }`. Once `frozen` is true, cursor
+ * tracking and drag-to-rotate both stop affecting the logo and its rotation is
+ * pinned to `{ x, y }` every frame — used once the user starts scrolling, so the
+ * logo settles into a fixed pose instead of continuing to react to the pointer.
+ */
+/**
+ * `mode` picks which title is built: 'logo' (TEDxTIET) or 'archive'
+ * (ARCHIVE OF VOICES). `onSelect` fires on a genuine click — a press and release
+ * that didn't travel far enough to count as a drag-to-rotate.
+ */
+/** @param {{ idleRef?: any, frozenRef?: any, mode?: 'logo'|'archive', onSelect?: () => void }} props */
+function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
+  const mountRef = useRef(null)
+  // kept in refs so the effect never closes over a stale value — the render
+  // loop reads both every frame
+  const onSelectRef = useRef(onSelect)
+  onSelectRef.current = onSelect
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+
+  useEffect(() => {
+    const mount = mountRef.current
+    let width = mount.clientWidth
+    let height = mount.clientHeight
+
+    // Where the wordmark lives. The camera aims AT it, so the logo projects to
+    // the exact centre of the canvas — it used to look at (0, 1.2, 0) while the
+    // group sat at y 1.15, leaving the wordmark permanently off-centre.
+    const LOGO_AT = new THREE.Vector3(0, 1.15, 2.4)
+
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100)
+    camera.position.set(0, 1.6, 13)
+    camera.lookAt(LOGO_AT)
+
+    // A browser can refuse a WebGL context — it caps how many a page may hold,
+    // and blocks new ones after repeated context loss. The constructor THROWS
+    // when that happens, and an effect that throws takes the whole React tree
+    // with it: the site went black because a decorative 3D wordmark could not
+    // get a canvas. It degrades to nothing instead.
+    let renderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    } catch (err) {
+      console.warn('TEDxTIET: 3D wordmark disabled, no WebGL context available.', err)
+      return
+    }
+    renderer.setClearColor(0x000000, 0)
+    renderer.setSize(width, height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.1
+    mount.appendChild(renderer.domElement)
+
+    // subtle reflections so the glossy glass and metal bezels catch highlights
+    const pmrem = new THREE.PMREMGenerator(renderer)
+    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+
+    const logoScene = new THREE.Scene()
+    logoScene.environment = envTex
+    logoScene.environmentIntensity = 0.18
+
+    // ---------- lights (background meshes are unlit MeshBasic) ----------
+    logoScene.add(new THREE.AmbientLight(0xffffff, 0.05))
+
+    // strong light from high above (source out of frame) — lights letter tops,
+    // leaves undersides in shadow for depth
+    const topLight = new THREE.DirectionalLight(0xffffff, 2.2)
+    topLight.position.set(0, 12, 4)
+    topLight.target.position.set(0, 0, 0)
+    logoScene.add(topLight, topLight.target)
+
+    // dim front fill so shadowed areas aren't pitch black
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.45)
+    keyLight.position.set(-4, 4, 8)
+    logoScene.add(keyLight)
+
+    const disposables = []
+    let disposed = false
+
+    // ---------- 3D text ----------
+    const logoGroup = new THREE.Group()
+    logoGroup.position.set(0, 1.15, 2.4) // pivot at logo center
+    logoScene.add(logoGroup)
+    const font = new FontLoader().parse(fontJson)
+    // Materials are built ONCE and reused across title swaps — only the
+    // geometry is rebuilt. They are transparent so the crossfade can be driven
+    // from the render loop instead of by remounting anything.
+    let buildTitle
+    let setTitleOpacity
+    let fadeMats = []
+    /** geometries + edge materials belonging to the CURRENT title only */
+    const titleParts = []
+    const edgeMats = []
+    {
+      const textOpts = {
+        font,
+        size: 1.5,
+        depth: 0.35,
+        curveSegments: 10,
+        bevelEnabled: true,
+        bevelThickness: 0.018,
+        bevelSize: 0.015,
+        bevelSegments: 2,
+      }
+
+      // frosted (matte) glass with a faint glow inside the blocks
+      const redMat = new THREE.MeshPhysicalMaterial({
+        color: 0xcc1212,
+        roughness: 0.45,
+        metalness: 0.1,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.5,
+        emissive: 0xff2828,
+        emissiveIntensity: 0.22,
+        transparent: true,
+      })
+      // metallic bevel/side edges
+      const redSideMat = new THREE.MeshStandardMaterial({
+        color: 0xd8d8d8,
+        metalness: 0.9,
+        roughness: 0.35,
+        transparent: true,
+      })
+
+      const whiteMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf2f2f2,
+        roughness: 0.62,
+        metalness: 0.05,
+        clearcoat: 0.25,
+        clearcoatRoughness: 0.6,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.24,
+        transparent: true,
+      })
+      // darker metal so the bezels read against the bright white glass
+      const whiteSideMat = new THREE.MeshStandardMaterial({
+        color: 0x8f8f8f,
+        metalness: 0.85,
+        roughness: 0.45,
+        transparent: true,
+      })
+
+      // re-group triangles so only the angled bevel strips are metal:
+      // 0 = front/back faces, 1 = flat side walls (glass), 2 = bevel edges (metal)
+      const make = (text, opts, mats, edgeColor = 0xc8c8c8) => {
+        const geo = new TextGeometry(text, opts)
+        geo.computeBoundingBox()
+        const normal = geo.getAttribute('normal')
+        geo.clearGroups()
+        for (let i = 0; i < normal.count; i += 3) {
+          const nz = (Math.abs(normal.getZ(i)) + Math.abs(normal.getZ(i + 1)) + Math.abs(normal.getZ(i + 2))) / 3
+          const matIndex = nz > 0.98 ? 0 : nz < 0.08 ? 1 : 2
+          geo.addGroup(i, 3, matIndex)
+        }
+        const mesh = new THREE.Mesh(geo, mats)
+        // silver outline on the sharp corner edges between the side faces
+        const edgeGeo = new THREE.EdgesGeometry(geo, 25)
+        const edgeMat = new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: 0.85 })
+        mesh.add(new THREE.LineSegments(edgeGeo, edgeMat))
+        // tracked per build, not for the lifetime of the scene: these are
+        // thrown away and remade on every title swap
+        titleParts.push(geo, edgeGeo, edgeMat)
+        edgeMats.push(edgeMat)
+        return mesh
+      }
+
+      const buildArchive = () => {
+        // "ARCHIVE OF VOICES" — two stacked lines, smaller than the logo so the
+        // longer string still sits inside the same screen width
+        const lineOpts = { ...textOpts, size: 0.95 }
+        const top = make('ARCHIVE OF', lineOpts, [whiteMat, whiteMat, whiteSideMat], 0x606060)
+        const bottom = make('VOICES', lineOpts, [redMat, redMat, redSideMat])
+
+        // centre each line on its own bounding box, then stack them
+        const place = (mesh, y) => {
+          const b = mesh.geometry.boundingBox
+          mesh.position.set(
+            -(b.max.x + b.min.x) / 2,
+            y - (b.max.y + b.min.y) / 2,
+            -(b.max.z + b.min.z) / 2
+          )
+        }
+        place(top, 0.72)
+        place(bottom, -0.72)
+
+        logoGroup.add(top, bottom)
+      }
+
+      const buildWordmark = () => {
+        const ted = make('TED', textOpts, [redMat, redMat, redSideMat])
+        const tedW = ted.geometry.boundingBox.max.x - ted.geometry.boundingBox.min.x
+
+        const x = make('x', { ...textOpts, size: 0.7 }, [redMat, redMat, redSideMat])
+        const xW = x.geometry.boundingBox.max.x - x.geometry.boundingBox.min.x
+
+        // darker outline so the bezels cast a subtle shadow line against the white
+        const tiet = make('TIET', textOpts, [whiteMat, whiteMat, whiteSideMat], 0x606060)
+        const tietW = tiet.geometry.boundingBox.max.x - tiet.geometry.boundingBox.min.x
+
+        const gap = 0.12
+        const total = tedW + gap + xW + gap + tietW
+        // vertical/depth centering from TED's own bounds so the pivot sits at the
+        // logo's true center and the row is centered on the carpet's axis
+        const tb = ted.geometry.boundingBox
+        const baseY = -(tb.max.y + tb.min.y) / 2
+        const baseZ = -(tb.max.z + tb.min.z) / 2
+        // each mesh is shifted by its own min.x so glyph bearing doesn't skew the row
+        let cursor = -total / 2
+        ted.position.set(cursor - tb.min.x, baseY, baseZ)
+        cursor += tedW + gap
+        x.position.set(cursor - x.geometry.boundingBox.min.x, baseY + 0.78, baseZ) // superscript x
+        cursor += xW + gap
+        tiet.position.set(cursor - tiet.geometry.boundingBox.min.x, baseY, baseZ)
+
+        logoGroup.add(ted, x, tiet)
+      }
+
+      // Swap the lettering WITHOUT touching the renderer, the environment map
+      // or the canvas. Rebuilding those was what made the change read as a
+      // stutter: the whole WebGL context was torn down and recreated at the
+      // exact midpoint of the crossfade.
+      buildTitle = (which) => {
+        logoGroup.clear()
+        titleParts.forEach((d) => d.dispose())
+        titleParts.length = 0
+        edgeMats.length = 0
+        if (which === 'archive') buildArchive()
+        else buildWordmark()
+      }
+
+      fadeMats = [redMat, redSideMat, whiteMat, whiteSideMat]
+      setTitleOpacity = (v) => {
+        fadeMats.forEach((m) => { m.opacity = v })
+        edgeMats.forEach((m) => { m.opacity = 0.85 * v })
+      }
+      disposables.push(redMat, redSideMat, whiteMat, whiteSideMat)
+    }
+
+    let dragging = false
+    let lastX = 0
+    let lastY = 0
+
+    // cursor-follow: the logo leans slightly toward the pointer
+    let targetRotX = 0
+    let targetRotY = 0
+    const onMouseTrack = (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1
+      const ny = (e.clientY / window.innerHeight) * 2 - 1
+      targetRotY = nx * 0.22
+      targetRotX = ny * 0.12
+    }
+    window.addEventListener('pointermove', onMouseTrack)
+
+    // ---------- title crossfade ----------
+    // Driven from the render loop against real elapsed time, so it runs at the
+    // same speed on any refresh rate and is frame-accurate. Because the target
+    // is read from a ref every frame, clicking again mid-transition simply
+    // reverses it instead of desyncing — no click suppression needed.
+    const FADE_SECONDS = 0.3
+    let builtMode = modeRef.current
+    let fade = 1 // 1 = fully present, 0 = fully faded out
+    buildTitle(builtMode)
+    setTitleOpacity(1)
+
+    const stepFade = (dt) => {
+      const wanted = modeRef.current
+      // fade out while the target differs, back in once the new letters are up
+      const dir = wanted === builtMode ? 1 : -1
+      fade = Math.max(0, Math.min(1, fade + (dir * dt) / FADE_SECONDS))
+
+      if (fade === 0 && wanted !== builtMode) {
+        // nothing is visible right now, so this is the moment to swap meshes
+        buildTitle(wanted)
+        builtMode = wanted
+      }
+
+      // smoothstep, then a touch of scale so the change reads as deliberate
+      const e = fade * fade * (3 - 2 * fade)
+      setTitleOpacity(e)
+      logoGroup.scale.setScalar(0.955 + 0.045 * e)
+    }
+
+    let frameId
+    let lastT = performance.now()
+    const animate = () => {
+      // scrolled away behind the film reel: keep the loop alive but draw nothing.
+      // The last frame stays on the canvas, and since the stage is dimmed and
+      // pushed off to the left by then, the freeze is invisible.
+      const now = performance.now()
+      const dt = Math.min(0.05, (now - lastT) / 1000)
+      lastT = now
+
+      if (idleRef?.current) {
+        frameId = requestAnimationFrame(animate)
+        return
+      }
+
+      stepFade(dt)
+
+      if (frozenRef?.current?.frozen) {
+        // scroll has taken over: hold the pinned pose, ignore cursor/drag entirely
+        logoGroup.rotation.x = frozenRef.current.x
+        logoGroup.rotation.y = frozenRef.current.y
+      } else if (!dragging) {
+        // when not dragging, ease toward the cursor-follow orientation
+        logoGroup.rotation.x += (targetRotX - logoGroup.rotation.x) * 0.04
+        logoGroup.rotation.y += (targetRotY - logoGroup.rotation.y) * 0.04
+      }
+      renderer.render(logoScene, camera)
+      frameId = requestAnimationFrame(animate)
+    }
+    animate()
+
+    // ---------- drag to rotate the logo ----------
+    // active drag is capped to a 30% offset (of a full turn) on every axis
+    const MAX_DRAG_ROTATION = Math.PI * 2 * 0.3
+    const canvas = renderer.domElement
+    canvas.style.cursor = onSelectRef.current ? 'pointer' : 'grab'
+
+    // a press that neither travels far nor lingers counts as a click, so
+    // drag-to-rotate and click-to-select can share the same canvas
+    const CLICK_SLOP_PX = 6
+    const CLICK_MAX_MS = 500
+    let pressX = 0
+    let pressY = 0
+    let pressAt = 0
+
+    const onPointerDown = (e) => {
+      pressX = e.clientX
+      pressY = e.clientY
+      pressAt = performance.now()
+      if (frozenRef?.current?.frozen) return
+      dragging = true
+      lastX = e.clientX
+      lastY = e.clientY
+      if (!onSelectRef.current) canvas.style.cursor = 'grabbing'
+      // capture can throw for a pointer the browser doesn't consider active
+      try { canvas.setPointerCapture(e.pointerId) } catch { /* not capturable */ }
+    }
+    const onPointerMove = (e) => {
+      if (!dragging) return
+      logoGroup.rotation.y += (e.clientX - lastX) * 0.000625
+      logoGroup.rotation.x += (e.clientY - lastY) * 0.000625
+      logoGroup.rotation.x = Math.max(-MAX_DRAG_ROTATION, Math.min(MAX_DRAG_ROTATION, logoGroup.rotation.x))
+      logoGroup.rotation.y = Math.max(-MAX_DRAG_ROTATION, Math.min(MAX_DRAG_ROTATION, logoGroup.rotation.y))
+      lastX = e.clientX
+      lastY = e.clientY
+    }
+    const onPointerUp = (e) => {
+      dragging = false
+      canvas.style.cursor = onSelectRef.current ? 'pointer' : 'grab'
+
+      // resolve the click FIRST — releasing capture can throw, and a click must
+      // never be swallowed by that
+      const travelled = Math.hypot(e.clientX - pressX, e.clientY - pressY)
+      const held = performance.now() - pressAt
+      if (onSelectRef.current && travelled < CLICK_SLOP_PX && held < CLICK_MAX_MS) {
+        onSelectRef.current()
+      }
+
+      try { canvas.releasePointerCapture(e.pointerId) } catch { /* never captured */ }
+    }
+    canvas.addEventListener('pointerdown', onPointerDown)
+    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointerup', onPointerUp)
+    canvas.addEventListener('pointercancel', onPointerUp)
+
+    // The canvas was sized once from mount.clientHeight and then only on
+    // window.resize. But this element's box is set by useStageRect AFTER the
+    // first paint, and changes again whenever the stage scale does — so the
+    // canvas kept a stale size and aspect, and the wordmark rendered ~200px
+    // above the drawn screen on wide viewports. A ResizeObserver tracks the
+    // element itself, which is what actually determines the projection.
+    const handleResize = () => {
+      width = mount.clientWidth
+      height = mount.clientHeight
+      if (!width || !height) return
+      camera.aspect = width / height
+      camera.updateProjectionMatrix()
+      renderer.setSize(width, height)
+    }
+    const ro = new ResizeObserver(handleResize)
+    ro.observe(mount)
+
+    return () => {
+      disposed = true
+      cancelAnimationFrame(frameId)
+      ro.disconnect()
+      window.removeEventListener('pointermove', onMouseTrack)
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerup', onPointerUp)
+      canvas.removeEventListener('pointercancel', onPointerUp)
+      mount.removeChild(renderer.domElement)
+      titleParts.forEach((d) => d.dispose())
+      disposables.forEach((d) => d.dispose())
+      envTex.dispose()
+      pmrem.dispose()
+      renderer.dispose()
+    }
+    // NOT `mode`: the scene is built once and the lettering is swapped inside
+    // it. Listing mode here tore down the renderer, the PMREM environment and
+    // the canvas on every click, which is what made the transition lurch.
+  }, [idleRef])
+
+  // the canvas paints the TEDxTIET wordmark; label it so assistive tech
+  // reports something other than an empty box
+  return (
+    <div
+      ref={mountRef}
+      className="absolute inset-0"
+      role="img"
+      aria-label="TEDxTIET logo, rendered in 3D"
+    />
+  )
+}
+
+export default StageScene
