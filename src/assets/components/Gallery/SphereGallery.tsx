@@ -312,6 +312,51 @@ export default function SphereGallery({ fullPage = false }: GalleryProps) {
         const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
         /**
+         * Thumbnails go through a small queue with retries. All 114 used to be
+         * requested at once, and on a weak connection a good share of them
+         * timed out and never came back: those tiles stayed blank panels for
+         * the rest of the visit. Six at a time keeps each request alive, and
+         * a failed one is tried again after 1s, 2s and 4s.
+         */
+        let unmounted = false;
+        const THUMB_PARALLEL = 6;
+        const THUMB_RETRIES = 3;
+        const thumbQueue: Array<() => Promise<void>> = [];
+        let thumbsActive = 0;
+        const pumpThumbs = () => {
+            while (!unmounted && thumbsActive < THUMB_PARALLEL && thumbQueue.length) {
+                const job = thumbQueue.shift()!;
+                thumbsActive += 1;
+                job().finally(() => {
+                    thumbsActive -= 1;
+                    pumpThumbs();
+                });
+            }
+        };
+        const loadThumb = (url: string, onLoad: (tex: THREE.Texture) => void, attempt = 0) => {
+            thumbQueue.push(
+                () =>
+                    new Promise<void>((done) => {
+                        loader.load(
+                            url,
+                            (tex) => {
+                                if (unmounted) tex.dispose();
+                                else onLoad(tex);
+                                done();
+                            },
+                            undefined,
+                            () => {
+                                done();
+                                if (unmounted || attempt >= THUMB_RETRIES) return;
+                                setTimeout(() => loadThumb(url, onLoad, attempt + 1), 1000 * 2 ** attempt);
+                            }
+                        );
+                    })
+            );
+            pumpThumbs();
+        };
+
+        /**
          * A plane shaped like the photo it will carry, at a constant area.
          *
          * One shared landscape plane stretched every portrait frame to fit,
@@ -385,22 +430,16 @@ export default function SphereGallery({ fullPage = false }: GalleryProps) {
             // tier. At full size 114 maps would cost roughly 350MB of GPU
             // memory and shut phones out; the focused tile fetches its own
             // full-size map, which is the only place the detail is visible.
-            loader.load(
-                asset(`/Gallery/thumb/img${photoIndex}.webp`),
-                (tex) => {
-                    tex.colorSpace = THREE.SRGBColorSpace;
-                    tex.anisotropy = maxAniso;
-                    mesh.userData.thumbTex = tex;
-                    mat.map = tex;
-                    mat.color.set(0xffffff);
-                    mat.needsUpdate = true;
-                    disposables.push(tex);
-                },
-                undefined,
-                () => {
-                    /* missing image: the tile stays a dim panel */
-                }
-            );
+            loadThumb(asset(`/Gallery/thumb/img${photoIndex}.webp`), (tex) => {
+                tex.colorSpace = THREE.SRGBColorSpace;
+                tex.anisotropy = maxAniso;
+                mesh.userData.thumbTex = tex;
+                // the focused tile may already be showing its full-size map
+                if (fullTile !== mesh) mat.map = tex;
+                mat.color.set(0xffffff);
+                mat.needsUpdate = true;
+                disposables.push(tex);
+            });
         });
 
         // ---------- red connector lines ----------
@@ -981,6 +1020,7 @@ export default function SphereGallery({ fullPage = false }: GalleryProps) {
         window.addEventListener("resize", onResize);
 
         return () => {
+            unmounted = true;
             cancelAnimationFrame(frameId);
             timer.dispose();
             io.disconnect();
@@ -1095,7 +1135,7 @@ export default function SphereGallery({ fullPage = false }: GalleryProps) {
                     <p className="font-mono text-[11px] md:text-xs tracking-[0.35em] uppercase text-tedx-red">
                         The Gallery
                     </p>
-                    <h2 className="mt-3 font-display text-[clamp(2rem,6vw,3.5rem)] font-black leading-none text-white text-balance">
+                    <h2 className="mt-3 font-display uppercase text-[clamp(2rem,6vw,3.5rem)] leading-none text-white text-balance">
                         Moments, Connected
                     </h2>
                     <p className="mx-auto mt-3 max-w-[560px] text-pretty text-sm text-white/65">

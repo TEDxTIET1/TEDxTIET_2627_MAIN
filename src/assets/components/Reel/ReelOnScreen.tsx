@@ -281,12 +281,19 @@ export default function ReelOnScreen({ scrollRootRef, onCentre, progressStore = 
                 never escape it horizontally or vertically */}
             <div
                 className="absolute inset-0 z-0 overflow-hidden"
-                style={{
-                    clipPath: `url(#${CLIP_ID})`,
-                    // dulled 30% so the reel reads as projected light, not a UI overlay
-                    filter: "brightness(0.95) saturate(0.95)",
-                }}
+                style={{ clipPath: `url(#${CLIP_ID})` }}
             >
+                {/* Dulls the reel a touch so it reads as projected light, not
+                    a UI overlay. This was a CSS filter on this clipped box,
+                    which made the browser re-filter the whole moving strip on
+                    every frame of the scroll — the Archive of Voices' lag. A
+                    flat 5% black veil over it looks the same and costs
+                    nothing. */}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 z-10"
+                    style={{ backgroundColor: "rgba(0,0,0,0.05)" }}
+                />
                 <div className="absolute inset-0">
                     {/* reel area spans the outline's own bounding box, so the strip's
                         top/bottom bars sit right on the outline's upper/lower edges and

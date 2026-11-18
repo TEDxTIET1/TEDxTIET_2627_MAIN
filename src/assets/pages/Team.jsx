@@ -1,119 +1,90 @@
 import React, { useState, useEffect } from 'react';
-import TeamMatrix from './TeamMatrix';
+import { ArrowRight, Mail } from 'lucide-react';
 import { BOARD_LEFT, BOARD_RIGHT, COMMITTEE_LEFT, COMMITTEE_RIGHT } from '../data/team';
 
-import { asset } from "../lib/basePath";
-export const TEAM_MEMBERS = [
-  { name: 'VRINDA CHHABRA', role: 'CURATION HEAD', image: asset('/ExecutiveBoard/VRINDACHHABRA.webp') },
-  { name: 'DAKSH SACHDEVA', role: 'DESIGN HEAD', image: asset('/ExecutiveBoard/DAKSHSACHDEVA.webp') },
-  { name: 'AANYA GARG', role: 'MARKETING HEAD', image: asset('/ExecutiveBoard/AANYAGARG.webp') },
-  { name: 'ANIKET GUPTA', role: 'RELATIONS AND STRATEGY HEAD', image: asset('/ExecutiveBoard/ANIKETGUPTA.webp') },
-  { name: 'POORVA PURI', role: 'CO LEAD ORGANISER', image: asset('/ExecutiveBoard/POORVAPURI.webp') },
-  { name: 'ROHAN SHARMA', role: 'Lead Organizer', image: asset('/ExecutiveBoard/ROHANSHARMA.webp') },
-  { name: 'SHARDOOL', role: 'CO LEAD ORGANISER', image: asset('/ExecutiveBoard/SHRADOOL.webp') },
-  { name: 'SANYA RAJPUT', role: 'EVENTS AND OUTREACH HEAD', image: asset('/ExecutiveBoard/SANYARAJPUT.webp') },
-  { name: 'SURYA PRATAP SINGH', role: 'OPERATIONS AND MEDIA HEAD', image: asset('/ExecutiveBoard/SURYAPRATAPSINGH.webp') },
-  { name: 'DISHA VERMA', role: 'EXPERIENCE HEAD', image: asset('/ExecutiveBoard/DISHAVERMA.webp') },
-];
+/**
+ * Team.
+ *
+ * Everyone appears once. The scrolling 3D strip of board photos that used to
+ * open the page showed the board a second time above the board itself, so it
+ * is gone. The Executive Board is shown with its photos always visible; the
+ * Executive Committee is a list of names on desktop whose photo appears on
+ * hover, and a photo grid on phones, which have no hover.
+ *
+ * Cards are in the same language as the alumni page: square corners, a
+ * hairline frame, Anton names, IBM Plex Mono roles.
+ */
 
-const MemberCard = ({ name, role, image }) => (
-  <div className="bg-zinc-900/50 rounded-2xl overflow-hidden border border-zinc-800 transition-all hover:border-[#eb0028]/50 group">
-    <div className="aspect-[3/4] overflow-hidden relative">
-      <img src={image} alt={name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
-      <div className="absolute bottom-4 left-4 right-4">
-        <p className="text-white font-bold text-lg leading-tight uppercase tracking-tight">{name}</p>
-        {role && <p className="text-[#eb0028] text-[10px] font-bold uppercase tracking-widest mt-1">{role}</p>}
-      </div>
+const RED = '#eb0028';
+const RULE = '#232323';
+const MUTED = '#8a8a8a';
+
+// the data keeps two columns for the committee's desktop zig-zag; the board
+// reads in one grid, so its columns are woven back together to keep the lead
+// organiser and both co-leads at the front
+const BOARD = BOARD_LEFT.flatMap((m, i) => (BOARD_RIGHT[i] ? [m, BOARD_RIGHT[i]] : [m]));
+const COMMITTEE = [...COMMITTEE_LEFT, ...COMMITTEE_RIGHT];
+
+const PhotoCard = ({ name, role, image, eager }) => (
+  <li className="group">
+    <div
+      className="relative overflow-hidden border"
+      style={{ aspectRatio: '3 / 4', borderColor: RULE, backgroundColor: '#0d0d0d' }}
+    >
+      <img
+        src={image}
+        alt={name}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
+      />
+      <span
+        aria-hidden="true"
+        className="absolute bottom-0 left-0 h-[3px] w-full origin-left scale-x-0 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100"
+        style={{ backgroundColor: RED }}
+      />
     </div>
+    <p className="mt-3 font-['Anton'] text-base uppercase leading-tight tracking-[0.02em] text-white md:text-lg">
+      {name}
+    </p>
+    {role && (
+      <p
+        className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em]"
+        style={{ color: MUTED }}
+      >
+        {role}
+      </p>
+    )}
+  </li>
+);
+
+const SectionHeading = ({ first, second, count }) => (
+  <div
+    className="flex items-end justify-between gap-4 border-t pt-6"
+    style={{ borderColor: RULE }}
+  >
+    <h2 className="font-['Anton'] text-5xl uppercase leading-[0.9] tracking-[0.015em] text-white md:text-7xl">
+      {first} <span style={{ color: RED }}>{second}</span>
+    </h2>
+    <p
+      className="shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] md:text-[11px]"
+      style={{ color: MUTED }}
+    >
+      {count} members
+    </p>
   </div>
 );
 
-const ExecutiveBoardItem = ({ name, role, image, side }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [imageTop, setImageTop] = useState(0);
-  const nameRef = React.useRef(null);
-  const timeoutRef = React.useRef(null);
-
-  const onEnter = () => {
-    if (nameRef.current) {
-      const top = nameRef.current.offsetTop + nameRef.current.offsetHeight / 2;
-      setImageTop(top);
-    }
-    timeoutRef.current = setTimeout(() => setIsHovered(true), 100);
-  };
-
-  const onLeave = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsHovered(false);
-  };
-
-  return (
-    <div className="md:block hidden">
-      <div
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-        className="group flex flex-col py-6 border-b border-zinc-800 hover:bg-zinc-900 transition-colors duration-300 px-4 cursor-pointer relative"
-      >
-        <div className="relative w-fit">
-          <h3
-            ref={nameRef}
-            className="font-headline tracking-[0.02em] uppercase text-white text-5xl md:text-6xl group-hover:text-[#eb0028] transition-colors z-10"
-          >
-            {name}
-          </h3>
-
-          {isHovered && (
-            <div
-              className={`absolute w-64 h-80 bg-[#eb0028] rounded-[10px] overflow-hidden shadow-2xl team-pop pointer-events-none z-[100] ${side === 'left' ? 'left-full ml-10' : 'right-full mr-10'}`}
-              style={{
-                top: imageTop,
-                transform: 'translateY(-50%)',
-              }}
-            >
-              <div
-                className="w-full h-full bg-cover bg-center transition-all duration-700"
-                style={{ backgroundImage: `url(${image})` }}
-              />
-            </div>
-          )}
-        </div>
-        <span className="font-body text-xs uppercase tracking-widest mt-2 text-zinc-400 group-hover:text-[#eb0028] transition-colors z-10">{role}</span>
-      </div>
-    </div>
-  );
-};
-
-const ExecutiveBoard = () => {
-  return (
-    <div className="mb-16 relative">
-      <h2 className="font-headline text-5xl md:text-7xl tracking-[0.015em] uppercase mb-8 md:mb-12 text-white px-4 md:px-0">
-        Executive <span className="text-[#eb0028]">Board</span>
-      </h2>
-      
-      {/* Mobile Card Grid */}
-      <div className="grid grid-cols-2 gap-4 px-4 md:hidden">
-        {[...BOARD_LEFT, ...BOARD_RIGHT].map((m, idx) => (
-          <MemberCard key={idx} {...m} />
-        ))}
-      </div>
-
-      {/* Desktop List View */}
-      <section className="hidden md:grid grid-cols-2 gap-x-24 relative min-h-[500px] px-16">
-        <div className="flex flex-col relative">
-          {BOARD_LEFT.map((m, idx) => (
-            <ExecutiveBoardItem key={idx} {...m} />
-          ))}
-        </div>
-        <div className="flex flex-col relative">
-          {BOARD_RIGHT.map((m, idx) => (
-            <ExecutiveBoardItem key={idx} {...m} />
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-};
+const ExecutiveBoard = () => (
+  <section>
+    <SectionHeading first="Executive" second="Board" count={BOARD.length} />
+    <ul className="mt-10 grid list-none grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:mt-14 md:gap-x-6 lg:grid-cols-5">
+      {BOARD.map((m, i) => (
+        <PhotoCard key={m.name} {...m} eager={i < 5} />
+      ))}
+    </ul>
+  </section>
+);
 
 const ExecutiveCommitteeItem = ({ name, image, side }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -135,68 +106,63 @@ const ExecutiveCommitteeItem = ({ name, image, side }) => {
   };
 
   return (
-    <div
+    <li
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className="group flex flex-col py-8 border-b border-zinc-800 hover:bg-zinc-900 transition-colors duration-300 px-4 cursor-pointer relative"
+      // reachable from the keyboard too: focus shows the photo as hover does
+      tabIndex={0}
+      onFocus={onEnter}
+      onBlur={onLeave}
+      className="group relative flex flex-col border-b px-4 py-8 transition-colors duration-300 hover:bg-[#0d0d0d] focus-visible:bg-[#0d0d0d]"
+      style={{ borderColor: RULE }}
     >
       <div className="relative w-fit">
-        <h2
+        <p
           ref={nameRef}
-          className="font-headline text-4xl md:text-5xl tracking-[0.02em] uppercase text-white group-hover:text-[#eb0028] transition-colors z-10"
+          className="z-10 font-['Anton'] text-4xl uppercase tracking-[0.02em] text-white transition-colors group-hover:text-[#eb0028] md:text-5xl"
         >
           {name}
-        </h2>
+        </p>
 
         {isHovered && (
           <div
-            className={`absolute w-64 h-80 bg-[#eb0028] rounded-[10px] overflow-hidden shadow-2xl team-pop pointer-events-none z-[100] ${side === 'left' ? 'left-full ml-10' : 'right-full mr-10'}`}
-            style={{
-              top: imageTop,
-              transform: 'translateY(-50%)',
-            }}
+            className={`team-pop pointer-events-none absolute z-[100] h-80 w-64 overflow-hidden border ${side === 'left' ? 'left-full ml-10' : 'right-full mr-10'}`}
+            style={{ top: imageTop, transform: 'translateY(-50%)', borderColor: RULE, backgroundColor: RED }}
           >
-            <div
-              className="w-full h-full bg-cover bg-center transition-all duration-700"
-              style={{ backgroundImage: `url(${image})` }}
-            />
+            <img src={image} alt="" decoding="async" className="h-full w-full object-cover" />
           </div>
         )}
       </div>
-    </div>
+    </li>
   );
 };
 
-const ExecutiveCommittee = () => {
-  return (
-    <div className="mt-24 md:mt-32 mb-16">
-      <h2 className="font-headline text-5xl md:text-7xl tracking-[0.015em] uppercase mb-8 md:mb-12 text-white px-4 md:px-0">
-        Executive <span className="text-[#eb0028]">Committee</span>
-      </h2>
+const ExecutiveCommittee = () => (
+  <section className="mt-16 md:mt-24">
+    <SectionHeading first="Executive" second="Committee" count={COMMITTEE.length} />
 
-      {/* Mobile Card Grid */}
-      <div className="grid grid-cols-2 gap-4 px-4 md:hidden">
-        {[...COMMITTEE_LEFT, ...COMMITTEE_RIGHT].map((m, idx) => (
-          <MemberCard key={idx} {...m} />
+    {/* phones: no hover, so the photos show */}
+    <ul className="mt-10 grid list-none grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:hidden">
+      {COMMITTEE.map((m) => (
+        <PhotoCard key={m.name} {...m} />
+      ))}
+    </ul>
+
+    {/* desktop: names, with the photo on hover */}
+    <div className="relative mt-6 hidden grid-cols-2 gap-x-24 md:grid">
+      <ul className="flex list-none flex-col">
+        {COMMITTEE_LEFT.map((m) => (
+          <ExecutiveCommitteeItem key={m.name} {...m} />
         ))}
-      </div>
-
-      {/* Desktop List View */}
-      <section className="hidden md:grid grid-cols-2 gap-x-24 px-16 relative">
-        <div className="flex flex-col">
-          {COMMITTEE_LEFT.map((m, idx) => (
-            <ExecutiveCommitteeItem key={idx} {...m} />
-          ))}
-        </div>
-        <div className="flex flex-col md:mt-[4.5rem]">
-          {COMMITTEE_RIGHT.map((m, idx) => (
-            <ExecutiveCommitteeItem key={idx} {...m} />
-          ))}
-        </div>
-      </section>
+      </ul>
+      <ul className="flex list-none flex-col md:mt-[4.5rem]">
+        {COMMITTEE_RIGHT.map((m) => (
+          <ExecutiveCommitteeItem key={m.name} {...m} />
+        ))}
+      </ul>
     </div>
-  );
-};
+  </section>
+);
 
 const Team = () => {
   // brief fade-in only; the full-screen splash that used to gate the page
@@ -209,31 +175,43 @@ const Team = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // NOTE: there used to be a second effect here that fired
-  // window.scrollTo({ behavior: 'smooth' }) once the intro cleared. It ran
-  // after the overlay had already gone, so it yanked the page back up from
-  // under anyone who had started scrolling. The scrollTo(0,0) above is enough.
-
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white relative">
+    <div className="relative min-h-screen bg-black text-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
+          backgroundSize: 'clamp(70px, 8vw, 120px) clamp(70px, 8vw, 120px)',
+        }}
+      />
 
-      <main className={`flex-1 w-full max-w-[1440px] mx-auto px-0 md:px-12 pt-8 pb-24 relative transition-opacity duration-1000 ${isIntroActive ? 'opacity-0' : 'opacity-100'}`}>
-        {/* The visible page name is the one in the navbar. This keeps the
-            document's level-1 heading for assistive tech and search engines
-            without printing TEAM twice down the screen. */}
+      <main
+        className={`relative mx-auto w-full max-w-[1440px] px-5 pb-28 transition-opacity duration-1000 md:px-10 ${isIntroActive ? 'opacity-0' : 'opacity-100'}`}
+      >
+        {/* the visible page name is the one in the navbar */}
         <h1 className="sr-only">Our Team</h1>
-        
-        {/* Parabolic Matrix for Desktop */}
-        <div className="hidden md:block">
-          <TeamMatrix />
-        </div>
 
         <ExecutiveBoard />
         <ExecutiveCommittee />
 
-        {/* Decorative Elements */}
-        <div className="fixed top-1/4 right-0 pointer-events-none opacity-[0.03] select-none hidden md:block">
-          <span className="font-headline text-[30rem] font-black leading-none -rotate-90 block">TEDxTIET</span>
+        <div
+          className="mt-16 flex flex-col gap-3 border-t pt-6 font-mono text-[10px] uppercase tracking-[0.2em] sm:flex-row sm:items-center sm:justify-between md:mt-24"
+          style={{ borderColor: RULE, color: MUTED }}
+        >
+          <p>Want to join the team?</p>
+          <a
+            href="mailto:tedx@thapar.edu"
+            className="group inline-flex items-center gap-2 py-[5px] transition-colors duration-300 hover:text-white"
+          >
+            <Mail aria-hidden="true" className="h-3.5 w-3.5" />
+            tedx@thapar.edu
+            <ArrowRight
+              aria-hidden="true"
+              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1"
+            />
+          </a>
         </div>
       </main>
     </div>

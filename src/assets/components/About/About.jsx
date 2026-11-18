@@ -337,12 +337,12 @@ export default function About({ controlledSection = null }) {
       <div className="about-inner relative z-[2] mx-auto max-w-[1440px] h-full flex flex-col items-stretch gap-6 px-6 pt-12 pb-16 md:flex-row md:items-center md:gap-24 md:pr-12 md:pt-0 md:pb-0">
         {/* ---------------- Left: sticky heading + timeline ---------------- */}
         <aside className="timeline relative w-full pb-4 md:w-[32%] md:shrink-0 md:sticky md:top-24 md:self-start md:pb-0">
-          <p className="font-mono text-[11px] tracking-[0.25em] font-semibold text-tedx-red m-0">
-            WHO WE ARE
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-[#8a8a8a] m-0">
+            Who we are
           </p>
           {/* h2, not h1: this is a section of the home page, whose h1 is the hero */}
-          <h2 className="font-display font-black tracking-[-0.01em] leading-[0.85] text-[clamp(2.25rem,2.6vw,3.4rem)] whitespace-nowrap text-white mt-2">
-            ABOUT US
+          <h2 className="font-display uppercase tracking-[0.01em] leading-[0.86] text-[clamp(2.25rem,4.5vw,4.5rem)] whitespace-nowrap text-white mt-3">
+            About <span className="text-tedx-red">Us</span>
           </h2>
           <p className="hidden md:block mt-4 max-w-[30ch] text-sm leading-[1.6] text-white/60">
             From a global stage to a Patiala auditorium — the same idea,
@@ -405,7 +405,7 @@ export default function About({ controlledSection = null }) {
                           {section.index} · {section.tag}
                         </span>
                         <span
-                          className={`block font-display font-bold text-xl md:text-2xl leading-none mt-1 transition-colors duration-300 ${
+                          className={`block font-display tracking-[0.02em] text-xl md:text-2xl leading-none mt-1 transition-colors duration-300 ${
                             isActive
                               ? "text-white"
                               : isDone
@@ -461,12 +461,12 @@ export default function About({ controlledSection = null }) {
 
                   <span
                     aria-hidden="true"
-                    className="about-index col-start-1 row-start-2 shrink-0 font-display font-black leading-none select-none text-[clamp(56px,9vw,120px)]"
+                    className="about-index col-start-1 row-start-2 shrink-0 font-display leading-none select-none text-[clamp(56px,9vw,120px)]"
                   >
                     {current.index}
                   </span>
 
-                  <h2 className="col-start-2 row-start-2 mt-2 min-w-0 font-display font-black tracking-[-0.015em] leading-[0.88] text-balance text-white text-[clamp(2.5rem,9vw,3.25rem)] md:text-[clamp(3rem,4.6vw,4.75rem)]">
+                  <h2 className="col-start-2 row-start-2 mt-2 min-w-0 font-display tracking-[0.01em] leading-[0.88] text-balance text-white text-[clamp(2.5rem,9vw,3.25rem)] md:text-[clamp(3rem,4.6vw,4.75rem)]">
                     {renderSectionTitle(current.title)}
                   </h2>
                 </div>
@@ -484,8 +484,8 @@ export default function About({ controlledSection = null }) {
                   {current.body}
                 </p>
 
-                <p className="mt-8 font-mono text-[10px] tracking-[0.3em] text-white/35">
-                  INDEPENDENTLY ORGANIZED
+                <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
+                  Independently organised
                 </p>
               </article>
             </motion.div>

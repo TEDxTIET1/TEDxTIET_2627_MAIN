@@ -128,8 +128,8 @@ export default function App() {
                 <Route path="/register" element={<RegistrationPage />} />
                 {/* the globe owns the whole viewport here — no shell, no page scroll */}
                 <Route path="/gallery" element={<SphereGallery fullPage />} />
-                <Route path="/speakers" element={<PageShell fit><SpeakersPage /></PageShell>} />
-                <Route path="/sponsors" element={<PageShell fit><SponsorsPage /></PageShell>} />
+                <Route path="/speakers" element={<PageShell><SpeakersPage /></PageShell>} />
+                <Route path="/sponsors" element={<PageShell><SponsorsPage /></PageShell>} />
                 <Route path="/team" element={<PageShell><TeamPage /></PageShell>} />
                 <Route path="/admin" element={<PageShell><AdminPage /></PageShell>} />
                 <Route path="/alumni" element={<PageShell><AlumniPage /></PageShell>} />

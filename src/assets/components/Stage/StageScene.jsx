@@ -64,7 +64,10 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
     }
     renderer.setClearColor(0x000000, 0)
     renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // 1.5, not 2: at 2x with antialiasing the canvas was filling four times
+    // the pixels of a 1x screen every frame, which is where the hero's lag
+    // came from on laptops with retina-class panels. 1.5 still reads sharp.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.1
     mount.appendChild(renderer.domElement)
@@ -300,6 +303,16 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
 
     let frameId
     let lastT = performance.now()
+    // set whenever the canvas is cleared or comes back into view, so the next
+    // frame draws even if the logo itself has not moved
+    let needsDraw = true
+    const drawn = { x: NaN, y: NaN, fade: NaN, mode: null }
+    let onScreen = true
+    const io = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting
+      if (onScreen) needsDraw = true
+    })
+    io.observe(mount)
     const animate = () => {
       // scrolled away behind the film reel: keep the loop alive but draw nothing.
       // The last frame stays on the canvas, and since the stage is dimmed and
@@ -308,7 +321,9 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
       const dt = Math.min(0.05, (now - lastT) / 1000)
       lastT = now
 
-      if (idleRef?.current) {
+      // nothing to draw while the stage is faded out, hidden behind the reel
+      // or scrolled off screen: the loop stays alive, the GPU rests
+      if (idleRef?.current || !onScreen) {
         frameId = requestAnimationFrame(animate)
         return
       }
@@ -324,7 +339,24 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
         logoGroup.rotation.x += (targetRotX - logoGroup.rotation.x) * 0.04
         logoGroup.rotation.y += (targetRotY - logoGroup.rotation.y) * 0.04
       }
-      renderer.render(logoScene, camera)
+
+      // Draw only when the picture changed since the last frame drawn (a
+      // drag moves the logo from its pointer handler, between frames). The
+      // wordmark spends most of its time at rest, and redrawing an identical
+      // antialiased frame 60 times a second was the hero's main cost.
+      const moved =
+        Math.abs(logoGroup.rotation.x - drawn.x) > 1e-5 ||
+        Math.abs(logoGroup.rotation.y - drawn.y) > 1e-5 ||
+        fade !== drawn.fade ||
+        builtMode !== drawn.mode
+      if (moved || needsDraw) {
+        needsDraw = false
+        drawn.x = logoGroup.rotation.x
+        drawn.y = logoGroup.rotation.y
+        drawn.fade = fade
+        drawn.mode = builtMode
+        renderer.render(logoScene, camera)
+      }
       frameId = requestAnimationFrame(animate)
     }
     animate()
@@ -396,6 +428,7 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
       camera.aspect = width / height
       camera.updateProjectionMatrix()
       renderer.setSize(width, height)
+      needsDraw = true
     }
     const ro = new ResizeObserver(handleResize)
     ro.observe(mount)
@@ -404,6 +437,7 @@ function StageScene({ idleRef, frozenRef, mode = 'logo', onSelect } = {}) {
       disposed = true
       cancelAnimationFrame(frameId)
       ro.disconnect()
+      io.disconnect()
       window.removeEventListener('pointermove', onMouseTrack)
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointermove', onPointerMove)

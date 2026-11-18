@@ -31,12 +31,12 @@
 /* ---------------------------------------------------------------------- */
 
 :root {
-  --tedx-red: #e62b1e;
+  --tedx-red: #eb0028;
   --tedx-red-deep: #a3160d;
 
-  --tedx-stage-bg-top: #090909;
-  --tedx-stage-bg-mid: #111111;
-  --tedx-stage-bg-bottom: #0b0b0b;
+  --tedx-stage-bg-top: #000000;
+  --tedx-stage-bg-mid: #000000;
+  --tedx-stage-bg-bottom: #000000;
 
   --tedx-card-bg: rgba(20, 20, 20, 0.95);
   --tedx-card-border: rgba(255, 255, 255, 0.08);
@@ -76,8 +76,8 @@
     z-index:0;
 
     background-image:
-        radial-gradient(circle, rgba(230,43,30,.50) 2px, transparent 2.8px),
-        radial-gradient(circle, rgba(230,43,30,.35) 2.5px, transparent 3.5px),
+        radial-gradient(circle, rgba(235,0,40,.50) 2px, transparent 2.8px),
+        radial-gradient(circle, rgba(235,0,40,.35) 2.5px, transparent 3.5px),
         radial-gradient(circle, rgba(255,255,255,.18) 1.5px, transparent 2.5px);
 
     background-size:
@@ -119,9 +119,9 @@
     z-index:0;
 
     background:
-        radial-gradient(circle at 20% 30%, rgba(230,43,30,.06), transparent 18%),
-        radial-gradient(circle at 80% 70%, rgba(230,43,30,.05), transparent 20%),
-        radial-gradient(circle at 55% 45%, rgba(230,43,30,.04), transparent 15%);
+        radial-gradient(circle at 20% 30%, rgba(235,0,40,.06), transparent 18%),
+        radial-gradient(circle at 80% 70%, rgba(235,0,40,.05), transparent 20%),
+        radial-gradient(circle at 55% 45%, rgba(235,0,40,.04), transparent 15%);
 
     filter:blur(70px);
 }
@@ -154,8 +154,8 @@
   content: "IDEAS";
   position: absolute;
   z-index: -1;
-  font-family: "Big Shoulders Display", sans-serif;
-  font-weight: 800;
+  font-family: "Anton", sans-serif;
+  font-weight: 400;
   letter-spacing: 0.02em;
   white-space: nowrap;
   color: transparent;
@@ -186,8 +186,8 @@
   left: -2.5rem;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: left center;
-  font-family: "Big Shoulders Display", sans-serif;
-  font-weight: 800;
+  font-family: "Anton", sans-serif;
+  font-weight: 400;
   letter-spacing: 0.08em;
   white-space: nowrap;
   font-size: clamp(3.5rem, 7vw, 6rem);
@@ -224,7 +224,7 @@
 }
 
 .timeline__node.is-active {
-  box-shadow: 0 0 0 4px var(--tedx-stage-bg-bottom), 0 0 16px 3px rgba(230, 43, 30, 0.55);
+  box-shadow: 0 0 0 4px var(--tedx-stage-bg-bottom), 0 0 16px 3px rgba(235, 0, 40, 0.55);
 }
 
 @keyframes timeline-pulse {
@@ -253,10 +253,10 @@
   z-index: -1;
   inset: -20% -10%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(230, 43, 30, 0.6) 0%, transparent 70%) 20% 15% / 0.6% 1% no-repeat,
-    radial-gradient(circle, rgba(230, 43, 30, 0.5) 0%, transparent 70%) 85% 25% / 0.5% 0.8% no-repeat,
+  background: radial-gradient(circle, rgba(235, 0, 40, 0.6) 0%, transparent 70%) 20% 15% / 0.6% 1% no-repeat,
+    radial-gradient(circle, rgba(235, 0, 40, 0.5) 0%, transparent 70%) 85% 25% / 0.5% 0.8% no-repeat,
     radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, transparent 70%) 10% 80% / 0.5% 0.8% no-repeat,
-    radial-gradient(circle, rgba(230, 43, 30, 0.45) 0%, transparent 70%) 92% 78% / 0.5% 0.9% no-repeat,
+    radial-gradient(circle, rgba(235, 0, 40, 0.45) 0%, transparent 70%) 92% 78% / 0.5% 0.9% no-repeat,
     radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%) 55% 8% / 0.4% 0.6% no-repeat;
   animation: about-float 18s ease-in-out infinite alternate;
 }
@@ -267,7 +267,7 @@
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 45%, rgba(230, 43, 30, 0.16), transparent 55%);
+  background: radial-gradient(circle at 50% 45%, rgba(235, 0, 40, 0.16), transparent 55%);
   filter: blur(30px);
   animation: about-spotlight 16s ease-in-out infinite alternate;
 }
@@ -297,9 +297,9 @@
      the third card, the largest. The card is 95% opaque, so the blur only
      ever showed through at 5%: it cost a full blur pass for a difference
      nobody could see. */
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45), 0 0 60px -12px rgba(230, 43, 30, 0.25),
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45), 0 0 60px -12px rgba(235, 0, 40, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 40px 60px -40px rgba(230, 43, 30, 0.06), inset 0 -30px 50px -30px rgba(0, 0, 0, 0.5);
+    inset 0 40px 60px -40px rgba(235, 0, 40, 0.06), inset 0 -30px 50px -30px rgba(0, 0, 0, 0.5);
 }
 
 /* ---------------------------------------------------------------------- */

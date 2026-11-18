@@ -98,6 +98,9 @@ export default function ScrollLogo({
     const y = stageH ? ((OUTLINE_CENTER.y - 50) / 100) * stageH : START_TRANSFORM.y * k;
     const scale = START_TRANSFORM.scale * k;
     const shown = opacity;
+    // faded out while the reel plays: tell the scene there is nothing to draw
+    const idleRef = useRef(false);
+    idleRef.current = shown < 0.01;
 
     return (
         <div
@@ -114,6 +117,7 @@ export default function ScrollLogo({
             }}
         >
             <StageScene
+                idleRef={idleRef}
                 frozenRef={frozenRef}
                 mode={titleMode}
                 // always clickable: the scene reads its target mode every frame,

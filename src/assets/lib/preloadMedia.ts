@@ -1,5 +1,6 @@
 /**
- * Loads the site's media, all of it at once, from the moment the app boots.
+ * Loads the site's media from the moment the app boots: the hero at once,
+ * everything else a few at a time behind it.
  *
  * It used to run in two stages: the hero during the preloader, everything
  * else only once the home page had mounted. Now every fetch starts together
@@ -58,6 +59,8 @@ function load(src: string, priority: "high" | "low"): Promise<void> {
 
 let started: Promise<void> | null = null;
 
+const OTHERS_PARALLEL = 4;
+
 /**
  * Starts every fetch, once (StrictMode mounts twice; this does not).
  * `onProgress` gets 0-1 across all of it. Resolves when the hero media has
@@ -76,7 +79,21 @@ export function preloadAllMedia(onProgress?: (fraction: number) => void, heroCap
     };
 
     const hero = Promise.all(HERO_MEDIA.map((src) => load(src, "high").then(tick))).then(() => undefined);
-    others.forEach((src) => load(src, "low").then(tick));
+
+    // The rest go through a pool of four rather than all at once. Firing
+    // every one of ~190 requests together is what flooded a weak connection:
+    // requests queued behind each other in the browser until they timed out,
+    // and the gallery photos that failed here never showed up later either.
+    // Four at a time, behind the hero, keeps every request moving.
+    const queue = [...others];
+    const worker = async () => {
+        await hero;
+        for (let src = queue.shift(); src; src = queue.shift()) {
+            await load(src, "low");
+            tick();
+        }
+    };
+    for (let i = 0; i < OTHERS_PARALLEL; i++) void worker();
 
     started = Promise.race([hero, new Promise<void>((resolve) => setTimeout(resolve, heroCapMs))]);
     return started;
